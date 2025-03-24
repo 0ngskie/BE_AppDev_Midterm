@@ -1,5 +1,5 @@
 //Local Server with Port 4000
-const express = require('express');
+const express = require("express");
 
 const app = express();
 
@@ -8,16 +8,29 @@ const port_number = 4000;
 //Middleware Setup
 app.use(express.json());
 
+app.get("/test", (req, res) => {
+  console.log("Test route hit!"); // Check server logs
+  res.send("Test successful!");
+});
+
 //Routes
-const userRoute = require('./routes/userRoute');
+const userRoute = require("./routes/userRoute");
+const claimRoute = require("./routes/claimsRoute");
 
 //Address
-app.use('/users', userRoute);
+app.use("/users", userRoute);
+app.use("/claims", claimRoute);
+
+//Error Handling
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).send("Something broke!");
+});
 
 //Running
 app.listen(port_number, () => {
-    console.log(`Server: http://localhost:${port_number}`)
-})
+  console.log(`Server: http://localhost:${port_number}`);
+});
 
 //npm install
 //Make a .env
