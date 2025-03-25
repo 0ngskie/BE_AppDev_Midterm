@@ -1,23 +1,24 @@
-//Local Server with Port 4000
 const express = require('express');
 
 const app = express();
-
 const port_number = 4000;
 
-//Middleware Setup
+// Middleware Setup
 app.use(express.json());
 
-//Routes
+// Routes
 const userRoute = require('./routes/userRoute');
+const paymentRoute = require('./routes/paymentRoute');  
 
-//Address
+// Address
 app.use('/users', userRoute);
+app.use('/payments', paymentRoute);  
 
-//Running
+// Running
 app.listen(port_number, () => {
-    console.log(`Server: http://localhost:${port_number}`)
-})
+    console.log(`Server: http://localhost:${port_number}`);
+});
+
 
 //npm install
 //Make a .env
