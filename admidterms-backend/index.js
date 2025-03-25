@@ -8,11 +8,6 @@ const port_number = 4000;
 //Middleware Setup
 app.use(express.json());
 
-app.get("/test", (req, res) => {
-  console.log("Test route hit!"); // Check server logs
-  res.send("Test successful!");
-});
-
 //Routes
 const userRoute = require("./routes/userRoute");
 const claimRoute = require("./routes/claimsRoute");

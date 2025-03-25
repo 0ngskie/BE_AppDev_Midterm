@@ -1,6 +1,7 @@
 const mysqlConnection = require("../mysql/mysqlConnection");
 
 class Claim {
+  // Create a new claim
   static async create(claimData, callback) {
     const {
       claim_date,
@@ -19,6 +20,7 @@ class Claim {
     );
   }
 
+  // Get all claims
   static getAll(callback) {
     mysqlConnection.query(
       "SELECT * FROM claims ORDER BY claim_date DESC",
@@ -29,6 +31,7 @@ class Claim {
     );
   }
 
+  // Get a claim by claim_id
   static findByID(claimId, callback) {
     mysqlConnection.query(
       "SELECT * FROM claims WHERE claim_id = ?",
@@ -40,6 +43,7 @@ class Claim {
     );
   }
 
+  // Update the status of a claim
   static updateStatus(claimId, newStatus, callback) {
     mysqlConnection.query(
       "UPDATE claims SET status = ? WHERE claim_id = ?",
@@ -50,6 +54,8 @@ class Claim {
       }
     );
   }
+
+  // Get all claims by policy_id
   static findByPolicyId(policyId, callback) {
     mysqlConnection.query(
       "SELECT * FROM claims WHERE policy_id = ? ORDER BY claim_date DESC",
@@ -61,18 +67,20 @@ class Claim {
     );
   }
 
-  static findByStatus(status) {
+  // Get all claims by status
+  static findByStatus(status, callback) {
     mysqlConnection.query(
       "SELECT * FROM claims WHERE status = ? ORDER BY claim_date DESC",
       [status],
-      (err, result) => {
+      (err, results) => {
         if (err) return callback(err);
-        callback(null, result.affectedRows);
+        callback(null, results);
       }
     );
   }
 
-  static async delete(claimId) {
+  // Delete a claim
+  static delete(claimId, callback) {
     mysqlConnection.query(
       "DELETE FROM claims WHERE claim_id = ?",
       [claimId],
