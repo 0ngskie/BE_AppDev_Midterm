@@ -1,4 +1,4 @@
-const express = require('express');
+const express = require("express");
 
 const app = express();
 const port_number = 4000;
@@ -6,18 +6,19 @@ const port_number = 4000;
 // Middleware Setup
 app.use(express.json());
 
-// Routes
-const userRoute = require('./routes/userRoute');
-const paymentRoute = require('./routes/paymentRoute');  
+//Routes
+const userRoute = require("./routes/userRoute");
+const claimRoute = require("./routes/claimsRoute");
 
 // Address
-app.use('/users', userRoute);
+app.use("/users", userRoute);
 app.use('/payments', paymentRoute);  
+app.use("/claims", claimRoute);
 
 // Running
 app.listen(port_number, () => {
-    console.log(`Server: http://localhost:${port_number}`);
-});
+  console.log(`Server: http://localhost:${port_number}`);;
+});;
 
 
 //npm install
