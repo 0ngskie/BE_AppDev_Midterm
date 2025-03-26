@@ -38,9 +38,7 @@ module.exports.getUser = (req, res) => {
 
     const query = "SELECT * FROM users WHERE user_id = ?";
 
-    const values = [user_id];
-
-    mysqlConnection.query(query, values, (error, results) => {
+    mysqlConnection.query(query, user_id, (error, results) => {
         if (error) {
             console.error("Error fetching users:", error);
             return res.status(500).json({ error: "Error fetching users" });
@@ -88,7 +86,9 @@ module.exports.createUser = (req, res) => {
 //Update
 module.exports.updateUser = (req, res) => {
 
-    const {user_id, username, email, password, age, birthday, nationality, address, role } = req.body;
+    const { user_id } = req.params;
+
+    const {username, email, password, age, birthday, nationality, address, role } = req.body;
 
     const query = "UPDATE users SET username = ?, email = ?, password = ?, age = ?, birthday = ?, nationality = ?, address = ?, role = ? WHERE user_id = ?";
 
@@ -110,7 +110,7 @@ module.exports.updateUser = (req, res) => {
 //Delete
 module.exports.deleteUser = (req, res) => {
 
-    const {user_id} = req.body;
+    const { user_id } = req.params;
 
     const query = "DELETE FROM users WHERE user_id = ?";
 
