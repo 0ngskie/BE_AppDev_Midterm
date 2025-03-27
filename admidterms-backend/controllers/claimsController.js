@@ -103,18 +103,12 @@ exports.getClaimsByPolicy = (req, res) => {
   });
 };
 
-//Get claims by status
-exports.getClaimsByStatus = (req, res) => {
-  const { status } = req.params;
-  const allowedStatuses = ["Claimed", "Unclaimed"];
-
-  if (!allowedStatuses.includes(status)) {
-    return res.status(400).json({ error: "Invalid status" });
-  }
-
+//Get all unclaimed claims
+exports.getAllUnclaimedClaims = (req, res) => {
   const query =
-    "SELECT * FROM claims WHERE status = ? ORDER BY claim_date DESC";
-  mysqlConnection.query(query, [status], (error, results) => {
+    "SELECT * FROM claims WHERE status = 'Unclaimed' ORDER BY claim_date DESC";
+
+  mysqlConnection.query(query, (error, results) => {
     if (error) {
       console.error("Error fetching claims:", error);
       return res.status(500).json({ error: "Error fetching claims" });
@@ -130,6 +124,7 @@ exports.getClaimsByStatus = (req, res) => {
           claim.policy_id
         )
     );
+
     res.json(claims);
   });
 };
