@@ -29,3 +29,8 @@ app.listen(port_number, () => {
 
 //npm install mysql
 //node index.js (To Run)
+
+//March 28 2025 12:44 Update details:
+//1. Removed the following from the plansController.js: annual_amount, monthly_amount, duration_years, coverage_amount, benefits
+//2. Added the Plans.js in models folder
+
