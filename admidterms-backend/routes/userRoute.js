@@ -4,10 +4,9 @@ const userController = require('../controllers/userController');
 
 //Basic GET Route for Accounts
 router.get('/', userController.getAllUsers);
-
-router.get('/getUser/:user_id', userController.getUser);
-router.post('/createUser', userController.createUser);
-router.put('/updateUser/:user_id', userController.updateUser);
-router.delete('/deleteUser/:user_id', userController.deleteUser);
+router.get('/id', userController.getUser);
+router.post('/', userController.createUser);
+router.put('/id', userController.updateUser);
+router.delete('/:id', userController.deleteUser);
 
 module.exports = router;

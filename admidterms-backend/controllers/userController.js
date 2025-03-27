@@ -34,11 +34,11 @@ module.exports.getAllUsers = (req, res) => {
 //Get User by ID
 module.exports.getUser = (req, res) => {
 
-    const { user_id } = req.params;
+    const { id } = req.params;
 
-    const query = "SELECT * FROM users WHERE user_id = ?";
+    const query = "SELECT * FROM users WHERE id = ?";
 
-    mysqlConnection.query(query, user_id, (error, results) => {
+    mysqlConnection.query(query, id, (error, results) => {
         if (error) {
             console.error("Error fetching users:", error);
             return res.status(500).json({ error: "Error fetching users" });
@@ -46,7 +46,7 @@ module.exports.getUser = (req, res) => {
 
         // Map results to User.
         const users = results.map(user => new User(
-            user.user_id,
+            user.id,
             user.username,
             user.email,
             user.password,
@@ -79,20 +79,20 @@ module.exports.createUser = (req, res) => {
             return res.status(500).json({ error: "Error creating user" });
         }
 
-        res.status(201).json({ message: "User created successfully", user_id: results.user_id });
+        res.status(201).json({ message: "User created successfully", id: results.id });
     });
 };
 
 //Update
 module.exports.updateUser = (req, res) => {
 
-    const { user_id } = req.params;
+    const { id } = req.params;
 
     const {username, email, password, age, birthday, nationality, address, role } = req.body;
 
-    const query = "UPDATE users SET username = ?, email = ?, password = ?, age = ?, birthday = ?, nationality = ?, address = ?, role = ? WHERE user_id = ?";
+    const query = "UPDATE users SET username = ?, email = ?, password = ?, age = ?, birthday = ?, nationality = ?, address = ?, role = ? WHERE id = ?";
 
-    const values = [username, email, password, age, birthday, nationality, address, role, user_id];
+    const values = [username, email, password, age, birthday, nationality, address, role, id];
 
     mysqlConnection.query(query, values, (error, results) => {
         if (error) {
@@ -110,11 +110,11 @@ module.exports.updateUser = (req, res) => {
 //Delete
 module.exports.deleteUser = (req, res) => {
 
-    const { user_id } = req.params;
+    const { id } = req.params;
 
     const query = "DELETE FROM users WHERE user_id = ?";
 
-    mysqlConnection.query(query, user_id, (error, results) => {
+    mysqlConnection.query(query, [id] , (error, results) => {
         if (error) {
             console.error("Error deleting user:", error);
             return res.status(500).json({ error: "Error deleting user" });
