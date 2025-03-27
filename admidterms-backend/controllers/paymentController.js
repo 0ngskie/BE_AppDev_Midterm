@@ -7,7 +7,7 @@ module.exports.createPayment = (req, res) => {
     const { payment_date, amount_paid, status, policy_id } = req.body;
     const sql = 'INSERT INTO payments (payment_date, amount_paid, status, policy_id) VALUES (?, ?, ?, ?)';
     
-    mysql.query(sql, [payment_date, amount_paid, status, policy_id], (err, result) => {
+    mysqlConnection.query(sql, [payment_date, amount_paid, status, policy_id], (err, result) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
@@ -47,7 +47,7 @@ module.exports.updatePayment = (req, res) => {
     const { payment_date, amount_paid, status, policy_id } = req.body;
     const sql = 'UPDATE payments SET payment_date = ?, amount_paid = ?, status = ?, policy_id = ? WHERE payment_id = ?';
     
-    mysql.query(sql, [payment_date, amount_paid, status, policy_id, req.params.id], (err, result) => {
+    mysqlConnection.query(sql, [payment_date, amount_paid, status, policy_id, req.params.id], (err, result) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
@@ -62,7 +62,7 @@ module.exports.updatePayment = (req, res) => {
 module.exports.deletePayment = (req, res) => {
     const sql = 'DELETE FROM payments WHERE payment_id = ?';
     
-    mysql.query(sql, [req.params.id], (err, result) => {
+    mysqlConnection.query(sql, [req.params.id], (err, result) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
