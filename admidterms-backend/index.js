@@ -10,9 +10,13 @@ app.use(express.json());
 
 //Routes
 const userRoute = require('./routes/userRoute');
+const plansRoute = require('./routes/plansRoute');
+
 
 //Address
 app.use('/users', userRoute);
+app.use('/plans', plansRoute);
+
 
 //Running
 app.listen(port_number, () => {
