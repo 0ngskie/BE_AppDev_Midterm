@@ -3,7 +3,15 @@ const mysqlConnection = require("../mysql/mysqlConnection");
 
 // Create Payment
 module.exports.createPayment = (req, res) => {
-    const { payment_date, amount_paid, status, policy_id } = req.body;
+    const { 
+        payment_date, 
+        amount_paid, 
+        status, 
+        policy_id, 
+        payment_frequency, 
+        preferred_due_date, 
+        payment_method 
+    } = req.body;
 
     // Query to get the policy start date and type
     const policyQuery = "SELECT policy_type, start_date FROM policy WHERE policy_id = ?";
@@ -39,16 +47,22 @@ module.exports.createPayment = (req, res) => {
         }
 
         // Insert valid payment into the database
-        const sql = 'INSERT INTO payments (payment_date, amount_paid, status, policy_id) VALUES (?, ?, ?, ?)';
-        mysqlConnection.query(sql, [payment_date, amount_paid, status, policy_id], (err, result) => {
-            if (err) {
-                return res.status(500).json({ error: err.message });
+        const sql = `INSERT INTO payments 
+            (payment_date, amount_paid, status, policy_id, payment_frequency, preferred_due_date, payment_method) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+        mysqlConnection.query(
+            sql, 
+            [payment_date, amount_paid, status, policy_id, payment_frequency, preferred_due_date, payment_method], 
+            (err, result) => {
+                if (err) {
+                    return res.status(500).json({ error: err.message });
+                }
+                res.status(201).json({ message: 'Payment added successfully', id: result.insertId });
             }
-            res.status(201).json({ message: 'Payment added successfully', id: result.insertId });
-        });
+        );
     });
 };
-
 
 // Get All Payments
 module.exports.getAllPayments = (req, res) => {
@@ -59,21 +73,22 @@ module.exports.getAllPayments = (req, res) => {
             return res.status(500).json({ error: "Error fetching payments" });
         }
 
-        // Map results to Payment.
         const payments = results.map(payment => new Payment(
             payment.payment_id,
             payment.payment_date,
             payment.amount_paid,
             payment.status,
-            payment.policy_id
+            payment.policy_id,
+            payment.payment_frequency,
+            payment.preferred_due_date,
+            payment.payment_method
         ));
 
         res.json(payments);
     });
 };
 
-
-// Get Payment by ID 
+// Get Payment by ID
 module.exports.getPaymentID = (req, res) => {
     const sql = 'SELECT * FROM payments WHERE payment_id = ?';
 
@@ -85,12 +100,12 @@ module.exports.getPaymentID = (req, res) => {
     });
 };
 
-// Update Payment 
+// Update Payment
 module.exports.updatePayment = (req, res) => {
-    const { payment_date, amount_paid, status, policy_id } = req.body;
-    const sql = 'UPDATE payments SET payment_date = ?, amount_paid = ?, status = ?, policy_id = ? WHERE payment_id = ?';
+    const { payment_date, amount_paid, status, policy_id, payment_frequency, preferred_due_date, payment_method } = req.body;
+    const sql = 'UPDATE payments SET payment_date = ?, amount_paid = ?, status = ?, policy_id = ?, payment_frequency = ?, preferred_due_date = ?, payment_method = ? WHERE payment_id = ?';
 
-    mysqlConnection.query(sql, [payment_date, amount_paid, status, policy_id, req.params.id], (err, result) => {
+    mysqlConnection.query(sql, [payment_date, amount_paid, status, policy_id, payment_frequency, preferred_due_date, payment_method, req.params.id], (err, result) => {
         if (err) return res.status(500).json({ error: err.message });
         if (result.affectedRows === 0) return res.status(404).json({ message: 'Payment not found or no changes made' });
 
@@ -98,7 +113,7 @@ module.exports.updatePayment = (req, res) => {
     });
 };
 
-// Delete Payment 
+// Delete Payment
 module.exports.deletePayment = (req, res) => {
     const sql = 'DELETE FROM payments WHERE payment_id = ?';
 
