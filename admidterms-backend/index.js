@@ -9,11 +9,14 @@ app.use(express.json());
 //Routes
 const userRoute = require("./routes/userRoute");
 const claimRoute = require("./routes/claimsRoute");
+const paymentRoute = require("./routes/paymentRoute");
+const policyRoute = require("./routes/policyRoute");
 
 // Address
 app.use("/users", userRoute);
 app.use('/payments', paymentRoute);  
 app.use("/claims", claimRoute);
+app.use("/policies", policyRoute);
 
 // Running
 app.listen(port_number, () => {
