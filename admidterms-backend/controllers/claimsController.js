@@ -1,5 +1,13 @@
 const Claim = require("../models/claims");
 const mysqlConnection = require("../mysql/mysqlConnection");
+const sanitize = {
+  string: (value) => (typeof value === "string" ? value.trim() : value),
+  number: (value) => (isNaN(Number(value)) ? null : Number(value)),
+  date: (value) => {
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? null : date.toISOString().split("T")[0];
+  },
+};
 
 //Get All Claims
 exports.getAllClaims = (req, res) => {
@@ -27,7 +35,36 @@ exports.getAllClaims = (req, res) => {
 
 //Create a new claim
 exports.createClaim = (req, res) => {
-  const { claim_date, amount_claimed, status, policy_id } = req.body;
+  const sanitized = {
+    claim_date: sanitize.date(req.body.claim_date),
+    amount_claimed: sanitize.number(req.body.amount_claimed),
+    status: sanitize.string(req.body.status),
+    policy_id: sanitize.number(req.body.policy_id),
+  };
+
+  const { claim_date, amount_claimed, status, policy_id } = sanitized;
+
+  //validations
+
+  if (!amount_claimed || amount_claimed <= 0) {
+    return res.status(400).json({ error: "Amount must be a positive number." });
+  }
+
+  if (!Claim.validStatuses.includes(status)) {
+    return res
+      .status(400)
+      .json({ error: "Status must be either 'Unclaimed' or 'Claimed'." });
+  }
+
+  if (!policy_id || policy_id <= 0) {
+    return res
+      .status(400)
+      .json({ error: "Policy ID must be a positive number." });
+  }
+
+  if (!claim_date || isNaN(Date.parse(claim_date))) {
+    return res.status(400).json({ error: "Invalid date format." });
+  }
 
   const query =
     "INSERT INTO claims (claim_date, amount_claimed, status, policy_id) VALUES (?, ?, ?, ?)";
@@ -78,8 +115,11 @@ exports.getClaim = (req, res) => {
 //Get claims by policy ID
 exports.getClaimsByPolicy = (req, res) => {
   const { policyid } = req.params;
-  if (isNaN(policyid)) {
-    return res.status(400).json({ error: "Policy ID must be a number" });
+  if (!policyid || isNaN(parseInt(policyid)) || parseInt(policyid) <= 0) {
+    return res.status(400).json({
+      error: "Policy ID must be a positive number",
+      example: "/policy/123",
+    });
   }
 
   const query =
@@ -129,25 +169,83 @@ exports.getAllUnclaimedClaims = (req, res) => {
   });
 };
 
-//Update claims
+//Update Claims
 exports.updateClaim = (req, res) => {
   const { id } = req.params;
+  const updates = {
+    claim_date: req.body.claim_date
+      ? sanitize.date(req.body.claim_date)
+      : undefined,
+    amount_claimed: req.body.amount_claimed
+      ? sanitize.number(req.body.amount_claimed)
+      : undefined,
+    status: req.body.status ? sanitize.string(req.body.status) : undefined,
+    policy_id: req.body.policy_id
+      ? sanitize.number(req.body.policy_id)
+      : undefined,
+  };
+
+  const claimId = sanitize.number(id);
+  if (!claimId) {
+    return res.status(400).json({ error: "Invalid claim ID" });
+  }
+
   const { claim_date, amount_claimed, status, policy_id } = req.body;
 
-  const query =
-    "UPDATE claims SET claim_date = ?, amount_claimed = ?, status = ?, policy_id = ? WHERE claim_id = ?";
-  const values = [claim_date, amount_claimed, status, policy_id, id];
+  //validation
+  if (isNaN(parseInt(id)) || parseInt(id) <= 0) {
+    return res.status(400).json({ error: "Invalid claim ID" });
+  }
 
-  mysqlConnection.query(query, values, (error, results) => {
-    if (error) {
-      console.error("Error updating claim:", error);
-      return res.status(500).json({ error: "Error updating claim" });
-    }
-    if (results.affectedRows === 0) {
-      return res.status(404).json({ error: "Claim not found" });
-    }
-    res.json({ message: "Claim updated successfully" });
-  });
+  if (
+    amount_claimed &&
+    (isNaN(parseFloat(amount_claimed)) || parseFloat(amount_claimed) <= 0)
+  ) {
+    return res.status(400).json({ error: "Amount must be a positive number" });
+  }
+
+  if (status && !["Unclaimed", "Claimed"].includes(status)) {
+    return res.status(400).json({ error: "Invalid status value" });
+  }
+
+  this.getClaim(
+    { params: { id } },
+    {
+      json: (existingClaim) => {
+        if (existingClaim.status === "Claimed") {
+          return res
+            .status(403)
+            .json({ error: "Claimed requests cannot be modified" });
+        }
+
+        const query = `
+        UPDATE claims 
+        SET 
+          claim_date = COALESCE(?, claim_date),
+          amount_claimed = COALESCE(?, amount_claimed),
+          status = COALESCE(?, status),
+          policy_id = COALESCE(?, policy_id)
+        WHERE claim_id = ?
+      `;
+        const values = [claim_date, amount_claimed, status, policy_id, id];
+
+        mysqlConnection.query(query, values, (error, results) => {
+          if (error) {
+            console.error("Error updating claim:", error);
+            return res.status(500).json({ error: "Error updating claim" });
+          }
+          if (results.affectedRows === 0) {
+            return res.status(404).json({ error: "Claim not found" });
+          }
+          res.json({ message: "Claim updated successfully" });
+        });
+      },
+      status: (code) => ({
+        json: (err) => res.status(code).json(err),
+      }),
+    },
+    () => {}
+  );
 };
 
 // Delete a claim

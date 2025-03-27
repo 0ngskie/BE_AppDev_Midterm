@@ -6,6 +6,10 @@ class Claim {
     this.status = status;
     this.policy_id = policy_id;
   }
+
+  static get validStatuses() {
+    return ["Unclaimed", "Claimed"];
+  }
 }
 
 module.exports = Claim;
