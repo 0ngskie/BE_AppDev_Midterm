@@ -3,7 +3,7 @@ const Plans = require("../models/plans");
 
 // Get all plans (with tiers)
 exports.getAllPlans = (req, res) => {
-    db.query("SELECT plan_id, plan_name, tier FROM plans", (err, result) => {
+    db.query("SELECT * FROM plans", (err, result) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(result);
     });
