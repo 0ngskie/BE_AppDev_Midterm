@@ -17,6 +17,14 @@ app.use("/users", userRoute);
 app.use('/payments', paymentRoute);  
 app.use("/claims", claimRoute);
 app.use("/policies", policyRoute);
+const userRoute = require('./routes/userRoute');
+const plansRoute = require('./routes/plansRoute');
+
+
+//Address
+app.use('/users', userRoute);
+app.use('/plans', plansRoute);
+
 
 // Running
 app.listen(port_number, () => {
