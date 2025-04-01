@@ -1,9 +1,14 @@
 //Local Server with Port 4000
 const express = require("express");
+const cors = require('cors'); // Import CORS middleware
 
 const app = express();
 
 const port_number = 4000;
+
+
+// Enable CORS for frontend (localhost:3000)
+app.use(cors());
 
 //Middleware Setup
 app.use(express.json());
