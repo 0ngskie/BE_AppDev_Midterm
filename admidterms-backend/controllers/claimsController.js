@@ -7,9 +7,12 @@ const sanitize = {
     const date = new Date(value);
     return isNaN(date.getTime()) ? null : date.toISOString().split("T")[0];
   },
+  enum: (value, validValues) => (validValues.includes(value) ? value : null),
+  phone: (value) =>
+    typeof value === "string" ? value.replace(/[^\d+]/g, "") : null,
 };
 
-//Check if policy exists
+// Check if policy exists
 const checkPolicyExists = (policyId, callback) => {
   const query = "SELECT * FROM policy WHERE policy_id = ?";
   mysqlConnection.query(query, [policyId], (error, results) => {
@@ -21,94 +24,252 @@ const checkPolicyExists = (policyId, callback) => {
   });
 };
 
-//Get All Claims
-exports.getAllClaims = (req, res) => {
-  const query = "SELECT * FROM claims ORDER BY claim_date DESC";
-
-  mysqlConnection.query(query, (error, results) => {
+// Check if client exists
+const checkClientExists = (clientId, callback) => {
+  const query = "SELECT * FROM users WHERE user_id = ? AND role = 'Client'";
+  mysqlConnection.query(query, [clientId], (error, results) => {
     if (error) {
-      console.error("Error fetching claims:", error);
-      return res.status(500).json({ error: "Error fetching claims" });
+      console.error("Error checking client existence:", error);
+      return callback(error, null);
     }
-
-    const claims = results.map(
-      (claim) =>
-        new Claim(
-          claim.claim_id,
-          claim.claim_date,
-          claim.amount_claimed,
-          claim.status,
-          claim.policy_id
-        )
-    );
-    res.json(claims);
+    callback(null, results.length > 0);
   });
 };
 
-//Create a new claim
-exports.createClaim = (req, res) => {
-  const sanitized = {
-    claim_date: sanitize.date(req.body.claim_date),
-    amount_claimed: sanitize.number(req.body.amount_claimed),
-    status: sanitize.string(req.body.status),
-    policy_id: sanitize.number(req.body.policy_id),
-  };
-
-  const { claim_date, amount_claimed, status, policy_id } = sanitized;
-
-  //validations
-
-  if (!amount_claimed || amount_claimed <= 0) {
-    return res.status(400).json({ error: "Amount must be a positive number." });
-  }
-
-  if (!Claim.validStatuses.includes(status)) {
-    return res
-      .status(400)
-      .json({ error: "Status must be either 'Unclaimed' or 'Claimed'." });
-  }
-
-  if (!policy_id || policy_id <= 0) {
-    return res
-      .status(400)
-      .json({ error: "Policy ID must be a positive number." });
-  }
-
-  if (!claim_date || isNaN(Date.parse(claim_date))) {
-    return res.status(400).json({ error: "Invalid date format." });
-  }
-
-  checkPolicyExists(policy_id, (error, exists) => {
+// Check if beneficiary exists
+const checkBeneficiaryExists = (beneficiaryId, callback) => {
+  if (!beneficiaryId) return callback(null, true); // Optional field
+  const query = "SELECT * FROM beneficiaries WHERE beneficiary_id = ?";
+  mysqlConnection.query(query, [beneficiaryId], (error, results) => {
     if (error) {
-      return res.status(500).json({ error: "Error checking policy" });
+      console.error("Error checking beneficiary existence:", error);
+      return callback(error, null);
     }
-    if (!exists) {
-      return res.status(404).json({ error: "Policy does not exist" });
+    callback(null, results.length > 0);
+  });
+};
+
+// Get All Claims with pagination
+exports.getAllClaims = (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
+
+  const query =
+    "SELECT * FROM claims ORDER BY claim_date DESC LIMIT ? OFFSET ?";
+  const countQuery = "SELECT COUNT(*) as total FROM claims";
+
+  mysqlConnection.query(countQuery, (countError, countResults) => {
+    if (countError) {
+      console.error("Error counting claims:", countError);
+      return res.status(500).json({ error: "Error fetching claims" });
     }
 
-    const query =
-      "INSERT INTO claims (claim_date, amount_claimed, status, policy_id) VALUES (?, ?, ?, ?)";
-    const values = [claim_date, amount_claimed, status, policy_id];
-
-    mysqlConnection.query(query, values, (error, results) => {
+    mysqlConnection.query(query, [limit, offset], (error, results) => {
       if (error) {
-        console.error("Error creating claim:", error);
-        return res.status(500).json({ error: "Error creating claim" });
+        console.error("Error fetching claims:", error);
+        return res.status(500).json({ error: "Error fetching claims" });
       }
 
-      const newClaim = new Claim(
-        results.insertId,
-        claim_date,
-        amount_claimed,
-        status,
-        policy_id
+      const claims = results.map(
+        (claim) =>
+          new Claim(
+            claim.claim_id,
+            claim.claim_date,
+            claim.amount_claimed,
+            claim.status,
+            claim.full_name,
+            claim.claimant_dob,
+            claim.claimant_contact_Number,
+            claim.claimant_relationship,
+            claim.event_date,
+            claim.event_location,
+            claim.event_description,
+            claim.policy_type,
+            claim.required_document,
+            claim.supporting_document,
+            claim.policy_id,
+            claim.client_id,
+            claim.beneficiary_id
+          )
       );
-      res.status(201).json(newClaim);
+
+      res.json({
+        data: claims,
+        pagination: {
+          page,
+          limit,
+          total: countResults[0].total,
+          totalPages: Math.ceil(countResults[0].total / limit),
+        },
+      });
     });
   });
 };
 
-//Get a claim by ID
+// Create a new claim
+exports.createClaim = (req, res) => {
+  const sanitized = {
+    claim_date: sanitize.date(req.body.claim_date),
+    amount_claimed: sanitize.number(req.body.amount_claimed),
+    status:
+      sanitize.enum(req.body.status, Claim.validStatuses) || "Under Review",
+    full_name: sanitize.string(req.body.full_name),
+    claimant_dob: sanitize.date(req.body.claimant_dob),
+    claimant_contact_Number: sanitize.phone(req.body.claimant_contact_Number),
+    claimant_relationship: sanitize.string(req.body.claimant_relationship),
+    event_date: sanitize.date(req.body.event_date),
+    event_location: sanitize.string(req.body.event_location),
+    event_description: sanitize.string(req.body.event_description),
+    policy_type: sanitize.enum(req.body.policy_type, [
+      "Retirement",
+      "Education",
+      "Health",
+      "Auto",
+    ]),
+    required_document: sanitize.enum(
+      req.body.required_document,
+      Claim.requiredDocuments
+    ),
+    supporting_document: req.body.supporting_document
+      ? sanitize.enum(req.body.supporting_document, Claim.supportingDocuments)
+      : null,
+    policy_id: sanitize.number(req.body.policy_id),
+    client_id: sanitize.number(req.body.client_id),
+    beneficiary_id: req.body.beneficiary_id
+      ? sanitize.number(req.body.beneficiary_id)
+      : null,
+  };
+
+  // Validate required fields
+  const requiredFields = [
+    "claim_date",
+    "amount_claimed",
+    "full_name",
+    "claimant_dob",
+    "claimant_contact_Number",
+    "claimant_relationship",
+    "event_date",
+    "event_description",
+    "policy_type",
+    "required_document",
+    "policy_id",
+    "client_id",
+  ];
+
+  const missingFields = requiredFields.filter((field) => !sanitized[field]);
+  if (missingFields.length > 0) {
+    return res.status(400).json({
+      error: `Missing required fields: ${missingFields.join(", ")}`,
+    });
+  }
+
+  // Validate amount
+  if (sanitized.amount_claimed <= 0) {
+    return res.status(400).json({ error: "Amount must be a positive number." });
+  }
+
+  // Validate dates
+  if (new Date(sanitized.event_date) > new Date()) {
+    return res
+      .status(400)
+      .json({ error: "Event date cannot be in the future." });
+  }
+
+  // Check all references exist
+  checkPolicyExists(sanitized.policy_id, (policyError, policyExists) => {
+    if (policyError) {
+      return res.status(500).json({ error: "Error checking policy" });
+    }
+    if (!policyExists) {
+      return res.status(404).json({ error: "Policy does not exist" });
+    }
+
+    checkClientExists(sanitized.client_id, (clientError, clientExists) => {
+      if (clientError) {
+        return res.status(500).json({ error: "Error checking client" });
+      }
+      if (!clientExists) {
+        return res.status(404).json({ error: "Client does not exist" });
+      }
+
+      checkBeneficiaryExists(
+        sanitized.beneficiary_id,
+        (beneficiaryError, beneficiaryExists) => {
+          if (beneficiaryError) {
+            return res
+              .status(500)
+              .json({ error: "Error checking beneficiary" });
+          }
+          if (!beneficiaryExists) {
+            return res
+              .status(404)
+              .json({ error: "Beneficiary does not exist" });
+          }
+
+          const query = `
+          INSERT INTO claims (
+            claim_date, amount_claimed, status, full_name, claimant_dob,
+            claimant_contact_Number, claimant_relationship, event_date,
+            event_location, event_description, policy_type, required_document,
+            supporting_document, policy_id, client_id, beneficiary_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+          const values = [
+            sanitized.claim_date,
+            sanitized.amount_claimed,
+            sanitized.status,
+            sanitized.full_name,
+            sanitized.claimant_dob,
+            sanitized.claimant_contact_Number,
+            sanitized.claimant_relationship,
+            sanitized.event_date,
+            sanitized.event_location,
+            sanitized.event_description,
+            sanitized.policy_type,
+            sanitized.required_document,
+            sanitized.supporting_document,
+            sanitized.policy_id,
+            sanitized.client_id,
+            sanitized.beneficiary_id,
+          ];
+
+          mysqlConnection.query(query, values, (error, results) => {
+            if (error) {
+              console.error("Error creating claim:", error);
+              return res.status(500).json({ error: "Error creating claim" });
+            }
+
+            const newClaim = new Claim(
+              results.insertId,
+              sanitized.claim_date,
+              sanitized.amount_claimed,
+              sanitized.status,
+              sanitized.full_name,
+              sanitized.claimant_dob,
+              sanitized.claimant_contact_Number,
+              sanitized.claimant_relationship,
+              sanitized.event_date,
+              sanitized.event_location,
+              sanitized.event_description,
+              sanitized.policy_type,
+              sanitized.required_document,
+              sanitized.supporting_document,
+              sanitized.policy_id,
+              sanitized.client_id,
+              sanitized.beneficiary_id
+            );
+
+            res.status(201).json(newClaim);
+          });
+        }
+      );
+    });
+  });
+};
+
+// Get a claim by ID
 exports.getClaim = (req, res) => {
   const { id } = req.params;
   const query = "SELECT * FROM claims WHERE claim_id = ?";
@@ -127,18 +288,31 @@ exports.getClaim = (req, res) => {
       results[0].claim_date,
       results[0].amount_claimed,
       results[0].status,
-      results[0].policy_id
+      results[0].full_name,
+      results[0].claimant_dob,
+      results[0].claimant_contact_Number,
+      results[0].claimant_relationship,
+      results[0].event_date,
+      results[0].event_location,
+      results[0].event_description,
+      results[0].policy_type,
+      results[0].required_document,
+      results[0].supporting_document,
+      results[0].policy_id,
+      results[0].client_id,
+      results[0].beneficiary_id
     );
+
     res.json(claim);
   });
 };
 
-//Get claims by policy ID
+// Get claims by policy ID
 exports.getClaimsByPolicy = (req, res) => {
   const { policyid } = req.params;
-  if (!policyid || isNaN(parseInt(policyid)) || parseInt(policyid) <= 0) {
+  if (!policyid || isNaN(parseInt(policyid))) {
     return res.status(400).json({
-      error: "Policy ID must be a positive number",
+      error: "Policy ID must be a valid number",
       example: "/policy/123",
     });
   }
@@ -158,6 +332,7 @@ exports.getClaimsByPolicy = (req, res) => {
         console.error("Error fetching claims:", error);
         return res.status(500).json({ error: "Error fetching claims" });
       }
+
       const claims = results.map(
         (claim) =>
           new Claim(
@@ -165,20 +340,42 @@ exports.getClaimsByPolicy = (req, res) => {
             claim.claim_date,
             claim.amount_claimed,
             claim.status,
-            claim.policy_id
+            claim.full_name,
+            claim.claimant_dob,
+            claim.claimant_contact_Number,
+            claim.claimant_relationship,
+            claim.event_date,
+            claim.event_location,
+            claim.event_description,
+            claim.policy_type,
+            claim.required_document,
+            claim.supporting_document,
+            claim.policy_id,
+            claim.client_id,
+            claim.beneficiary_id
           )
       );
+
       res.json(claims);
     });
   });
 };
 
-//Get all unclaimed claims
-exports.getAllUnclaimedClaims = (req, res) => {
-  const query =
-    "SELECT * FROM claims WHERE status = 'Unclaimed' ORDER BY claim_date DESC";
+// Get claims by status
+exports.getClaimsByStatus = (req, res) => {
+  const { status } = req.params;
 
-  mysqlConnection.query(query, (error, results) => {
+  if (!Claim.validStatuses.includes(status)) {
+    return res.status(400).json({
+      error: `Invalid status. Must be one of: ${Claim.validStatuses.join(
+        ", "
+      )}`,
+    });
+  }
+
+  const query =
+    "SELECT * FROM claims WHERE status = ? ORDER BY claim_date DESC";
+  mysqlConnection.query(query, [status], (error, results) => {
     if (error) {
       console.error("Error fetching claims:", error);
       return res.status(500).json({ error: "Error fetching claims" });
@@ -191,7 +388,19 @@ exports.getAllUnclaimedClaims = (req, res) => {
           claim.claim_date,
           claim.amount_claimed,
           claim.status,
-          claim.policy_id
+          claim.full_name,
+          claim.claimant_dob,
+          claim.claimant_contact_Number,
+          claim.claimant_relationship,
+          claim.event_date,
+          claim.event_location,
+          claim.event_description,
+          claim.policy_type,
+          claim.required_document,
+          claim.supporting_document,
+          claim.policy_id,
+          claim.client_id,
+          claim.beneficiary_id
         )
     );
 
@@ -199,70 +408,154 @@ exports.getAllUnclaimedClaims = (req, res) => {
   });
 };
 
-//Update Claims
+// Update Claim Status
+exports.updateClaimStatus = (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!Claim.validStatuses.includes(status)) {
+    return res.status(400).json({
+      error: `Invalid status. Must be one of: ${Claim.validStatuses.join(
+        ", "
+      )}`,
+    });
+  }
+
+  const query = "UPDATE claims SET status = ? WHERE claim_id = ?";
+  mysqlConnection.query(query, [status, id], (error, results) => {
+    if (error) {
+      console.error("Error updating claim status:", error);
+      return res.status(500).json({ error: "Error updating claim status" });
+    }
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ error: "Claim not found" });
+    }
+
+    res.json({ message: "Claim status updated successfully" });
+  });
+};
+
+// Update Claims
 exports.updateClaim = (req, res) => {
   const { id } = req.params;
-  const updates = {
-    claim_date: req.body.claim_date
-      ? sanitize.date(req.body.claim_date)
-      : undefined,
-    amount_claimed: req.body.amount_claimed
-      ? sanitize.number(req.body.amount_claimed)
-      : undefined,
-    status: req.body.status ? sanitize.string(req.body.status) : undefined,
-    policy_id: req.body.policy_id
-      ? sanitize.number(req.body.policy_id)
-      : undefined,
-  };
 
-  const claimId = sanitize.number(id);
-  if (!claimId) {
-    return res.status(400).json({ error: "Invalid claim ID" });
-  }
+  // Get the existing claim to check its status
+  this.getClaim(
+    { params: { id } },
+    {
+      json: (existingClaim) => {
+        if (
+          existingClaim.status === "Accepted" ||
+          existingClaim.status === "Reject"
+        ) {
+          return res.status(403).json({
+            error:
+              "Claims with status 'Accepted' or 'Reject' cannot be modified",
+          });
+        }
 
-  const { claim_date, amount_claimed, status, policy_id } = req.body;
+        const updates = {
+          claim_date: req.body.claim_date
+            ? sanitize.date(req.body.claim_date)
+            : undefined,
+          amount_claimed: req.body.amount_claimed
+            ? sanitize.number(req.body.amount_claimed)
+            : undefined,
+          status: req.body.status
+            ? sanitize.enum(req.body.status, Claim.validStatuses)
+            : undefined,
+          full_name: req.body.full_name
+            ? sanitize.string(req.body.full_name)
+            : undefined,
+          claimant_dob: req.body.claimant_dob
+            ? sanitize.date(req.body.claimant_dob)
+            : undefined,
+          claimant_contact_Number: req.body.claimant_contact_Number
+            ? sanitize.phone(req.body.claimant_contact_Number)
+            : undefined,
+          claimant_relationship: req.body.claimant_relationship
+            ? sanitize.string(req.body.claimant_relationship)
+            : undefined,
+          event_date: req.body.event_date
+            ? sanitize.date(req.body.event_date)
+            : undefined,
+          event_location: req.body.event_location
+            ? sanitize.string(req.body.event_location)
+            : undefined,
+          event_description: req.body.event_description
+            ? sanitize.string(req.body.event_description)
+            : undefined,
+          policy_type: req.body.policy_type
+            ? sanitize.enum(req.body.policy_type, [
+                "Retirement",
+                "Education",
+                "Health",
+                "Auto",
+              ])
+            : undefined,
+          required_document: req.body.required_document
+            ? sanitize.enum(req.body.required_document, Claim.requiredDocuments)
+            : undefined,
+          supporting_document: req.body.supporting_document
+            ? sanitize.enum(
+                req.body.supporting_document,
+                Claim.supportingDocuments
+              )
+            : undefined,
+          policy_id: req.body.policy_id
+            ? sanitize.number(req.body.policy_id)
+            : undefined,
+          client_id: req.body.client_id
+            ? sanitize.number(req.body.client_id)
+            : undefined,
+          beneficiary_id: req.body.beneficiary_id
+            ? sanitize.number(req.body.beneficiary_id)
+            : null,
+        };
 
-  //validation
-  if (isNaN(parseInt(id)) || parseInt(id) <= 0) {
-    return res.status(400).json({ error: "Invalid claim ID" });
-  }
+        // Validate amount if provided
+        if (updates.amount_claimed && updates.amount_claimed <= 0) {
+          return res
+            .status(400)
+            .json({ error: "Amount must be a positive number" });
+        }
 
-  if (
-    amount_claimed &&
-    (isNaN(parseFloat(amount_claimed)) || parseFloat(amount_claimed) <= 0)
-  ) {
-    return res.status(400).json({ error: "Amount must be a positive number" });
-  }
+        // Validate dates if provided
+        if (updates.event_date && new Date(updates.event_date) > new Date()) {
+          return res
+            .status(400)
+            .json({ error: "Event date cannot be in the future" });
+        }
 
-  if (status && !["Unclaimed", "Claimed"].includes(status)) {
-    return res.status(400).json({ error: "Invalid status value" });
-  }
+        // Check references if provided
+        const checkReferences = (callback) => {
+          if (updates.policy_id) {
+            checkPolicyExists(updates.policy_id, (error, exists) => {
+              if (error) return callback(error);
+              if (!exists) return callback(new Error("Policy does not exist"));
+              callback(null);
+            });
+          } else if (updates.client_id) {
+            checkClientExists(updates.client_id, (error, exists) => {
+              if (error) return callback(error);
+              if (!exists) return callback(new Error("Client does not exist"));
+              callback(null);
+            });
+          } else if (updates.beneficiary_id !== undefined) {
+            checkBeneficiaryExists(updates.beneficiary_id, (error, exists) => {
+              if (error) return callback(error);
+              if (!exists)
+                return callback(new Error("Beneficiary does not exist"));
+              callback(null);
+            });
+          } else {
+            callback(null);
+          }
+        };
 
-  const checkPolicyAndProceed = (callback) => {
-    if (policy_id) {
-      checkPolicyExists(policy_id, (error, exists) => {
-        if (error) return callback(error);
-        if (!exists) return callback(new Error("Policy does not exist"));
-        callback(null);
-      });
-    } else {
-      callback(null);
-    }
-  };
-
-  checkPolicyAndProceed((error) => {
-    if (error) {
-      return res.status(404).json({ error: error.message });
-    }
-
-    this.getClaim(
-      { params: { id } },
-      {
-        json: (existingClaim) => {
-          if (existingClaim.status === "Claimed") {
-            return res
-              .status(403)
-              .json({ error: "Claimed requests cannot be modified" });
+        checkReferences((error) => {
+          if (error) {
+            return res.status(404).json({ error: error.message });
           }
 
           const query = `
@@ -271,10 +564,41 @@ exports.updateClaim = (req, res) => {
               claim_date = COALESCE(?, claim_date),
               amount_claimed = COALESCE(?, amount_claimed),
               status = COALESCE(?, status),
-              policy_id = COALESCE(?, policy_id)
+              full_name = COALESCE(?, full_name),
+              claimant_dob = COALESCE(?, claimant_dob),
+              claimant_contact_Number = COALESCE(?, claimant_contact_Number),
+              claimant_relationship = COALESCE(?, claimant_relationship),
+              event_date = COALESCE(?, event_date),
+              event_location = COALESCE(?, event_location),
+              event_description = COALESCE(?, event_description),
+              policy_type = COALESCE(?, policy_type),
+              required_document = COALESCE(?, required_document),
+              supporting_document = COALESCE(?, supporting_document),
+              policy_id = COALESCE(?, policy_id),
+              client_id = COALESCE(?, client_id),
+              beneficiary_id = COALESCE(?, beneficiary_id)
             WHERE claim_id = ?
           `;
-          const values = [claim_date, amount_claimed, status, policy_id, id];
+
+          const values = [
+            updates.claim_date,
+            updates.amount_claimed,
+            updates.status,
+            updates.full_name,
+            updates.claimant_dob,
+            updates.claimant_contact_Number,
+            updates.claimant_relationship,
+            updates.event_date,
+            updates.event_location,
+            updates.event_description,
+            updates.policy_type,
+            updates.required_document,
+            updates.supporting_document,
+            updates.policy_id,
+            updates.client_id,
+            updates.beneficiary_id,
+            id,
+          ];
 
           mysqlConnection.query(query, values, (error, results) => {
             if (error) {
@@ -284,31 +608,50 @@ exports.updateClaim = (req, res) => {
             if (results.affectedRows === 0) {
               return res.status(404).json({ error: "Claim not found" });
             }
+
             res.json({ message: "Claim updated successfully" });
           });
-        },
-        status: (code) => ({
-          json: (err) => res.status(code).json(err),
-        }),
+        });
       },
-      () => {}
-    );
-  });
+      status: (code) => ({
+        json: (err) => res.status(code).json(err),
+      }),
+    },
+    () => {}
+  );
 };
 
 // Delete a claim
 exports.deleteClaim = (req, res) => {
   const { id } = req.params;
-  const query = "DELETE FROM claims WHERE claim_id = ?";
 
-  mysqlConnection.query(query, [id], (error, results) => {
-    if (error) {
-      console.error("Error deleting claim:", error);
-      return res.status(500).json({ error: "Error deleting claim" });
-    }
-    if (results.affectedRows === 0) {
-      return res.status(404).json({ message: "Claim not found" });
-    }
-    res.json({ message: "Claim deleted" });
-  });
+  // Check if claim exists and its status
+  this.getClaim(
+    { params: { id } },
+    {
+      json: (existingClaim) => {
+        if (existingClaim.status === "Accepted") {
+          return res.status(403).json({
+            error: "Accepted claims cannot be deleted",
+          });
+        }
+
+        const query = "DELETE FROM claims WHERE claim_id = ?";
+        mysqlConnection.query(query, [id], (error, results) => {
+          if (error) {
+            console.error("Error deleting claim:", error);
+            return res.status(500).json({ error: "Error deleting claim" });
+          }
+          if (results.affectedRows === 0) {
+            return res.status(404).json({ message: "Claim not found" });
+          }
+          res.json({ message: "Claim deleted successfully" });
+        });
+      },
+      status: (code) => ({
+        json: (err) => res.status(code).json(err),
+      }),
+    },
+    () => {}
+  );
 };

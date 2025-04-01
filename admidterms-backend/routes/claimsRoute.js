@@ -6,9 +6,10 @@ const claimsController = require("../controllers/claimsController");
 router.get("/", claimsController.getAllClaims);
 
 router.post("/", claimsController.createClaim);
-router.get("/unclaimed", claimsController.getAllUnclaimedClaims);
 router.get("/:id", claimsController.getClaim);
 router.get("/policy/:policyid", claimsController.getClaimsByPolicy);
+router.get("/status/:status", claimsController.getClaimsByStatus);
+router.patch("/:id/status", claimsController.updateClaimStatus);
 router.put("/:id", claimsController.updateClaim);
 router.delete("/:id", claimsController.deleteClaim);
 
