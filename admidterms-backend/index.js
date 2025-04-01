@@ -12,7 +12,6 @@ app.use(express.json());
 const userRoute = require('./routes/userRoute');
 const plansRoute = require('./routes/plansRoute');
 
-
 //Address
 app.use('/users', userRoute);
 app.use('/plans', plansRoute);
@@ -30,7 +29,7 @@ app.listen(port_number, () => {
 //npm install mysql
 //node index.js (To Run)
 
-//March 28 2025 12:44 Update details:
-//1. Removed the following from the plansController.js: annual_amount, monthly_amount, duration_years, coverage_amount, benefits
-//2. Added the Plans.js in models folder
+//March 31 2025 9:37pm Update details:
+//1. Modified everything to accomodate the new database scheme
+
 
