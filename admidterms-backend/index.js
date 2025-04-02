@@ -7,17 +7,21 @@ app.use(express.json());
 
 // Routes
 const userRoute = require('./routes/userRoute');
-const paymentRoute = require('./routes/paymentRoute');  
+const paymentRoute = require('./routes/paymentRoute');
 
 // Address
 app.use('/users', userRoute);
-app.use('/payments', paymentRoute);  
+app.use('/payments', paymentRoute);
 
-// Running
-app.listen(port_number, () => {
-    console.log(`Server: http://localhost:${port_number}`);
+// Catch-all for undefined routes
+app.use((req, res, next) => {
+    res.status(404).json({ error: 'Route not found' });
 });
 
+// Running the server
+app.listen(port_number, () => {
+    console.log(`Server running at http://localhost:${port_number}`);
+});
 
 
 //npm install
