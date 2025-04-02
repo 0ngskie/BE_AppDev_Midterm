@@ -1,9 +1,14 @@
 //Local Server with Port 4000
-const express = require('express');
+const express = require("express");
+const cors = require('cors'); // Import CORS middleware
 
 const app = express();
 
 const port_number = 4000;
+
+
+// Enable CORS for frontend (localhost:3000)
+app.use(cors());
 
 //Middleware Setup
 app.use(express.json());
@@ -11,16 +16,16 @@ app.use(express.json());
 //Routes
 const userRoute = require('./routes/userRoute');
 const plansRoute = require('./routes/plansRoute');
-
+const claimRoute = require("./routes/claimsRoute");
 //Address
 app.use('/users', userRoute);
 app.use('/plans', plansRoute);
-
+app.use("/claims", claimRoute);
 
 //Running
 app.listen(port_number, () => {
-    console.log(`Server: http://localhost:${port_number}`)
-})
+  console.log(`Server: http://localhost:${port_number}`);
+});
 
 //npm install
 //Make a .env
