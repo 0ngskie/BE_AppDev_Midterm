@@ -34,6 +34,7 @@ app.listen(port_number, () => {
 });
 
 //npm install
+
 //Make a .env
 //DB_HOST, DB_USER, DB_DATABASE
 
