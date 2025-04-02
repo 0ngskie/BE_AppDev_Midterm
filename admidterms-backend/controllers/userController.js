@@ -7,10 +7,13 @@ module.exports.getAllUsers = (req, res) => {
         SELECT 
             u.*, 
             p.policy_id, p.start_date, p.end_date, p.policy_status, 
-            pl.policy_type, pl.plan_type, pl.policy_overview 
+            pl.policy_type, pl.plan_type, pl.policy_overview,
+            s.username AS submitted_by, a.username AS approved_by
         FROM users u
         LEFT JOIN policy p ON u.user_id = p.user_id
         LEFT JOIN plans pl ON p.plan_id = pl.plan_id
+        LEFT JOIN users s ON p.submittedBy_id = s.user_id
+        LEFT JOIN users a ON p.approvedBy_id = a.user_id
     `;
 
     mysqlConnection.query(query, (error, results) => {
@@ -43,6 +46,8 @@ module.exports.getAllUsers = (req, res) => {
                     start_date: row.start_date,
                     end_date: row.end_date,
                     policy_status: row.policy_status,
+                    submitted_by: row.submitted_by,
+                    approved_by: row.approved_by,
                     plan: {
                         policy_type: row.policy_type,
                         plan_type: row.plan_type,
