@@ -45,7 +45,7 @@ module.exports.getAllUsers = (req, res) => {
                     policy_id: row.policy_id,
                     start_date: row.start_date,
                     end_date: row.end_date,
-                    policy_status: row.policy_status,
+                    policy_status: row.policy_status, // policy_status is included here
                     submitted_by: row.submitted_by,
                     approved_by: row.approved_by,
                     plan: {

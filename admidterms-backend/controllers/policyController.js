@@ -63,9 +63,14 @@ module.exports.getPolicyById = (req, res) => {
 // Update  
 module.exports.updatePolicy = (req, res) => {
     const { id } = req.params;
-    const { description, policy_type, start_date, end_date, user_id, plan_id } = req.body;
-    const query = "UPDATE policy SET description = ?, policy_type = ?, start_date = ?, end_date = ?, user_id = ?, plan_id = ? WHERE policy_id = ?";
-    mysqlConnection.query(query, [description, policy_type, start_date, end_date, user_id, plan_id, id], (error, results) => {
+    const { description, policy_status, start_date, end_date, user_id, plan_id, submittedBy_id, approvedBy_id } = req.body;
+    const query = `
+        UPDATE policy 
+        SET description = ?, policy_status = ?, start_date = ?, end_date = ?, 
+            user_id = ?, plan_id = ?, submittedBy_id = ?, approvedBy_id = ? 
+        WHERE policy_id = ?
+    `;
+    mysqlConnection.query(query, [description, policy_status, start_date, end_date, user_id, plan_id, submittedBy_id, approvedBy_id, id], (error, results) => {
         if (error) {
             console.error("Error updating policy:", error);
             return res.status(500).json({ error: "Error updating policy" });
