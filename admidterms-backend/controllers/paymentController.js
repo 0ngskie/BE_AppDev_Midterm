@@ -1,6 +1,6 @@
 const db = require('../mysql/mysqlConnection');
 const Payment = require('../models/payment');
-const paymentRoutes = require('./routes/payment');
+const paymentRoutes = require('../routes/paymentRoute');
 
 // Get all payments
 exports.getAllPayments = (req, res) => {
@@ -61,17 +61,15 @@ exports.createPayment = (req, res) => {
                 (today.getFullYear() - dueDate.getFullYear()) * 12 + 
                 (today.getMonth() - dueDate.getMonth());
             
-            // Apply penalty based on how many months overdue
-            // 10% penalty per month overdue, capped at 100% (double the original amount)
-            const penaltyRate = Math.min(monthsLate * 0.1, 1.0);
-            const penaltyAmount = amountDue * penaltyRate;
+            // Apply penalty by multiplying the original amount by the number of months late
+            const penaltyAmount = amountDue * monthsLate;
             
             // Add penalty to the original amount
             amountDue += penaltyAmount;
             
             paymentStatus = 'Over Due';
             
-            console.log(`Payment overdue by ${monthsLate} months. Applied penalty rate of ${penaltyRate * 100}%`);
+            console.log(`Payment overdue by ${monthsLate} months. Applied penalty: original amount × ${monthsLate}`);
         }
 
         const sql = `
