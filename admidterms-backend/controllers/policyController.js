@@ -1,7 +1,7 @@
 const Policy = require("../models/policy");
 const mysqlConnection = require("../mysql/mysqlConnection");
 
-// Create y
+// Create policy
 module.exports.createPolicy = (req, res) => {
     const { description, policy_type, start_date, end_date, user_id, plan_id } = req.body;
     const query = "INSERT INTO policy (description, policy_type, start_date, end_date, user_id, plan_id) VALUES (?, ?, ?, ?, ?, ?)";
